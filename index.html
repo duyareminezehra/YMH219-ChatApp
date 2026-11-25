@@ -3,252 +3,393 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>YMH219 - TCP/IP Canlı Chat Platformu (Web & Mobil)</title>
+  <title>YMH219 - Canlı & Kalıcı Çevrimiçi Chat Platformu (Web & Mobil)</title>
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <style>
     * { box-sizing: border-box; }
     body {
-      margin: 0; padding: 10px;
+      margin: 0; padding: 0;
       background: #090d16; color: #f8fafc;
       font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-      overflow-x: hidden;
+      height: 100vh; overflow: hidden;
+      display: flex; flex-direction: column;
     }
-    .container {
-      max-width: 1000px; margin: 0 auto;
-      display: flex; flex-direction: column; gap: 10px;
-      min-height: calc(100vh - 20px);
+
+    /* --- 1. GİRİŞ VE PROFİL EKRANI --- */
+    .login-modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(9, 13, 22, 0.95);
+      display: flex; justify-content: center; align-items: center;
+      z-index: 100; padding: 14px;
     }
-    header {
-      background: #1e293b; border: 1px solid #334155; border-radius: 12px;
-      padding: 12px 16px; display: flex; justify-content: space-between;
+    .login-card {
+      width: 100%; max-width: 420px;
+      background: #1e293b; border: 1px solid #334155;
+      border-radius: 16px; padding: 24px;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.7);
+      text-align: center;
+    }
+    .login-title {
+      margin: 0 0 6px 0; font-size: 20px; color: #38bdf8; font-weight: 800;
+    }
+    .login-subtitle {
+      margin: 0 0 18px 0; font-size: 12.5px; color: #94a3b8;
+    }
+    .avatar-picker {
+      display: flex; justify-content: center; gap: 8px; margin-bottom: 16px;
+    }
+    .avatar-opt {
+      font-size: 24px; width: 42px; height: 42px; border-radius: 50%;
+      background: #0f172a; border: 2px solid #334155;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: transform 0.1s, border-color 0.1s;
+    }
+    .avatar-opt.active {
+      border-color: #38bdf8; background: #0369a1; transform: scale(1.1);
+    }
+    .login-group {
+      text-align: left; margin-bottom: 12px;
+    }
+    .login-label {
+      font-size: 12px; color: #cbd5e1; font-weight: 600; display: block; margin-bottom: 4px;
+    }
+    .login-input {
+      width: 100%; background: #0f172a; border: 1px solid #475569;
+      border-radius: 8px; padding: 10px 12px; color: #fff; font-size: 14px; outline: none;
+    }
+    .login-input:focus { border-color: #38bdf8; }
+    .remember-row {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 12px; color: #94a3b8; margin: 10px 0 18px 0;
+    }
+    .btn-login {
+      width: 100%; border: none; border-radius: 8px; padding: 12px;
+      font-size: 14px; font-weight: 700; color: #fff;
+      background: #0284c7; cursor: pointer; transition: opacity 0.15s;
+    }
+    .btn-login:hover { background: #0369a1; }
+    .saved-profiles {
+      margin-top: 18px; padding-top: 14px; border-top: 1px solid #334155;
+      text-align: left; font-size: 12px;
+    }
+    .saved-list {
+      display: flex; flex-direction: column; gap: 6px; margin-top: 6px;
+    }
+    .saved-item {
+      background: #0f172a; border: 1px solid #334155; border-radius: 6px;
+      padding: 6px 10px; display: flex; justify-content: space-between; align-items: center;
+      cursor: pointer;
+    }
+    .saved-item:hover { border-color: #38bdf8; }
+
+    /* --- 2. ANA SOHBET ARAYÜZÜ --- */
+    .app-header {
+      background: #1e293b; border-bottom: 1px solid #334155;
+      padding: 8px 14px; display: flex; justify-content: space-between;
       align-items: center; flex-wrap: wrap; gap: 8px;
     }
-    .header-info h1 { margin: 0; font-size: 18px; color: #38bdf8; font-weight: 800; }
-    .header-info p { margin: 3px 0 0 0; font-size: 12px; color: #94a3b8; }
-    .status-badge {
-      padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;
-      background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981;
-      display: inline-flex; align-items: center; gap: 6px;
+    .app-title h1 { margin: 0; font-size: 16px; color: #38bdf8; font-weight: 800; }
+    .app-title p { margin: 2px 0 0 0; font-size: 11px; color: #94a3b8; }
+    .user-profile-badge {
+      display: flex; align-items: center; gap: 8px;
+      background: #0f172a; border: 1px solid #334155; border-radius: 20px;
+      padding: 4px 12px 4px 6px; font-size: 12.5px;
     }
-    .status-badge.connecting { background: rgba(245, 158, 11, 0.2); color: #facc15; border-color: #f59e0b; }
-    .status-badge.offline { background: rgba(239, 68, 68, 0.2); color: #f87171; border-color: #ef4444; }
-
-    /* Üst Ayar Çubuğu */
-    .toolbar {
-      display: flex; flex-wrap: wrap; gap: 8px;
-      background: #1e293b; border: 1px solid #334155; border-radius: 10px;
-      padding: 10px; align-items: center;
-    }
-    .form-group {
-      display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px;
-    }
-    .input {
-      background: #020617; border: 1px solid #475569; border-radius: 6px;
-      padding: 6px 10px; color: #fff; font-size: 12.5px; outline: none;
-    }
-    .input:focus { border-color: #38bdf8; }
-    .btn {
-      border: none; border-radius: 6px; padding: 7px 13px;
-      font-size: 12.5px; font-weight: 700; color: #fff; cursor: pointer;
-      display: inline-flex; align-items: center; gap: 5px;
-      transition: transform 0.1s, opacity 0.15s;
-    }
-    .btn:active { transform: scale(0.97); }
-    .btn-connect { background: #10b981; }
-    .btn-disconnect { background: #ef4444; }
-    .btn-share { background: #0284c7; }
-    .btn-save { background: #d97706; }
-    .btn-sound { background: #475569; }
-
-    /* Ana Izgara */
-    .grid {
-      display: grid; grid-template-columns: 1fr 270px;
-      gap: 10px; flex: 1;
-    }
-    @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
-
-    .card {
-      background: #1e293b; border: 1px solid #334155; border-radius: 10px;
-      padding: 12px; display: flex; flex-direction: column; gap: 8px;
-    }
-    .chat-box {
-      flex: 1; min-height: 400px; max-height: 520px;
-      background: #020617; border-radius: 8px; padding: 12px;
-      overflow-y: auto; display: flex; flex-direction: column; gap: 8px;
+    .btn-logout {
+      background: #ef4444; border: none; border-radius: 4px;
+      padding: 3px 8px; color: #fff; font-size: 11px; font-weight: 700; cursor: pointer;
     }
 
-    /* Mesaj Balonları */
+    /* 3 Sütunlu Ana Gövde */
+    .app-body {
+      flex: 1; display: grid; grid-template-columns: 240px 1fr 220px;
+      overflow: hidden;
+    }
+    @media (max-width: 900px) {
+      .app-body { grid-template-columns: 200px 1fr; }
+      .sidebar-right { display: none; }
+    }
+    @media (max-width: 650px) {
+      .app-body { grid-template-columns: 1fr; }
+      .sidebar-left { display: none; }
+    }
+
+    /* Sol Panel (Kanallar ve Sohbetler) */
+    .sidebar-left {
+      background: #0f172a; border-right: 1px solid #1e293b;
+      display: flex; flex-direction: column; overflow-y: auto;
+    }
+    .panel-section-title {
+      font-size: 11px; font-weight: 700; color: #94a3b8;
+      text-transform: uppercase; padding: 12px 14px 6px 14px;
+      letter-spacing: 0.5px;
+    }
+    .room-item {
+      padding: 9px 14px; font-size: 13px; color: #cbd5e1;
+      display: flex; align-items: center; gap: 8px; cursor: pointer;
+      border-left: 3px solid transparent;
+    }
+    .room-item:hover { background: #1e293b; }
+    .room-item.active {
+      background: #1e293b; color: #38bdf8; font-weight: 700; border-left-color: #38bdf8;
+    }
+    .btn-add-room {
+      margin: 8px 14px; padding: 6px; background: #1e293b; border: 1px dashed #475569;
+      border-radius: 6px; color: #94a3b8; font-size: 12px; font-weight: 600;
+      cursor: pointer; text-align: center;
+    }
+    .btn-add-room:hover { border-color: #38bdf8; color: #38bdf8; }
+
+    /* Orta Mesajlaşma Alanı */
+    .chat-center {
+      background: #090d16; display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .chat-header {
+      background: #131d2e; border-bottom: 1px solid #1e293b;
+      padding: 10px 16px; display: flex; justify-content: space-between;
+      align-items: center; flex-wrap: wrap; gap: 8px;
+    }
+    .chat-header-info h2 { margin: 0; font-size: 15px; color: #f8fafc; font-weight: 700; }
+    .chat-header-info p { margin: 2px 0 0 0; font-size: 11.5px; color: #94a3b8; }
+    .header-actions { display: flex; gap: 6px; }
+    .btn-action {
+      background: #1e293b; border: 1px solid #334155; border-radius: 6px;
+      padding: 5px 10px; color: #cbd5e1; font-size: 11.5px; font-weight: 600;
+      cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
+    }
+    .btn-action:hover { background: #334155; color: #fff; }
+
+    .chat-messages {
+      flex: 1; padding: 14px; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 10px;
+    }
     .msg {
-      padding: 8px 12px; border-radius: 8px; max-width: 80%;
-      word-break: break-word; font-size: 13.5px; line-height: 1.4;
-      animation: fadeIn 0.15s ease-out;
+      padding: 8px 12px; border-radius: 10px; max-width: 78%;
+      word-break: break-word; font-size: 13.5px; line-height: 1.45;
+      animation: popIn 0.12s ease-out;
     }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes popIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
     .msg-system {
-      align-self: center; background: rgba(30, 41, 59, 0.8);
-      color: #94a3b8; font-size: 11.5px; border-radius: 14px;
-      padding: 4px 12px; border: 1px solid #334155;
+      align-self: center; background: rgba(30, 41, 59, 0.7);
+      color: #94a3b8; font-size: 11px; border-radius: 12px;
+      padding: 3px 12px; border: 1px solid #334155;
     }
     .msg-public {
-      align-self: flex-start; background: #1e293b;
-      border-left: 3px solid #38bdf8;
+      align-self: flex-start; background: #1e293b; border-left: 3px solid #38bdf8;
     }
     .msg-self {
-      align-self: flex-end; background: #0369a1;
-      border-right: 3px solid #38bdf8;
+      align-self: flex-end; background: #0369a1; border-right: 3px solid #38bdf8;
     }
     .msg-private {
-      align-self: flex-start; background: #4c1d95;
-      border-left: 3px solid #facc15;
+      align-self: flex-start; background: #4c1d95; border-left: 3px solid #facc15;
     }
     .msg-private-self {
-      align-self: flex-end; background: #581c87;
-      border-right: 3px solid #facc15;
+      align-self: flex-end; background: #581c87; border-right: 3px solid #facc15;
     }
     .msg-meta {
-      font-size: 11px; color: #94a3b8; margin-bottom: 3px;
+      font-size: 10.5px; color: #94a3b8; margin-bottom: 2px;
       display: flex; gap: 6px; align-items: center;
     }
     .msg-self .msg-meta { color: #bae6fd; justify-content: flex-end; }
-    .msg-badge {
-      background: #d97706; color: #fff; font-size: 9.5px;
-      padding: 1px 5px; border-radius: 4px; font-weight: 700;
+    .msg-tag {
+      background: #d97706; color: #fff; font-size: 9px;
+      padding: 1px 4px; border-radius: 3px; font-weight: 700;
     }
 
-    /* Kullanıcı Listesi */
-    .user-list {
-      display: flex; flex-direction: column; gap: 6px;
-      overflow-y: auto; max-height: 420px;
+    .chat-footer {
+      background: #131d2e; border-top: 1px solid #1e293b;
+      padding: 10px 14px; display: flex; gap: 8px;
     }
-    .user-item {
-      padding: 8px 10px; background: #0f172a; border-radius: 6px;
-      font-size: 12.5px; display: flex; justify-content: space-between;
-      align-items: center; cursor: pointer; border: 1px solid transparent;
+    .chat-input {
+      flex: 1; background: #090d16; border: 1px solid #334155;
+      border-radius: 8px; padding: 10px 14px; color: #fff; font-size: 13.5px; outline: none;
     }
-    .user-item:hover { border-color: #38bdf8; }
-    .user-item.self { background: #082f49; }
-
-    /* Mesaj Gönderme Çubuğu */
-    .send-bar {
-      display: flex; gap: 8px; margin-top: 4px;
-    }
-    .send-input {
-      flex: 1; background: #020617; border: 1px solid #475569;
-      border-radius: 8px; padding: 10px 14px; color: #fff; font-size: 14px; outline: none;
-    }
-    .send-input:focus { border-color: #38bdf8; }
+    .chat-input:focus { border-color: #38bdf8; }
     .btn-send {
-      background: #0284c7; padding: 10px 22px; font-size: 13.5px;
+      background: #0284c7; border: none; border-radius: 8px;
+      padding: 10px 20px; color: #fff; font-weight: 700; font-size: 13px; cursor: pointer;
     }
+    .btn-send:hover { background: #0369a1; }
+
+    /* Sağ Panel (Kişiler) */
+    .sidebar-right {
+      background: #0f172a; border-left: 1px solid #1e293b;
+      display: flex; flex-direction: column; overflow-y: auto; padding: 10px;
+    }
+    .online-user-item {
+      padding: 7px 10px; background: #1e293b; border-radius: 6px;
+      font-size: 12.5px; display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 6px; cursor: pointer;
+    }
+    .online-user-item:hover { background: #334155; }
+    .online-user-item.self { background: #082f49; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div class="header-info">
-        <h1>YMH219 — Canlı Çevrimiçi Chat Platformu (Gerçek Zamanlı)</h1>
-        <p>Nesne Tabanlı Programlama 3. Ödev · Öğrenci: <b>Emine Zehra Duyar (250541027)</b></p>
-      </div>
-      <div id="status-badge" class="status-badge connecting">
-        <span id="status-dot">●</span> <span id="status-text">Sunucuya Bağlanıyor...</span>
-      </div>
-    </header>
 
-    <!-- Toolbar: İsim, Oda, Davet Linki, Ses, Kaydet -->
-    <div class="toolbar">
-      <div class="form-group">
-        <span>👤 Adınız:</span>
-        <input type="text" id="username-input" class="input" value="" style="width:115px;" placeholder="Adınız..." />
-      </div>
+  <!-- 1. KULLANICI GİRİŞ MODALI (SİSTEM KULLANICIYI HATIRLAR) -->
+  <div id="login-modal" class="login-modal-overlay">
+    <div class="login-card">
+      <h2 class="login-title">YMH219 Chat Platformu</h2>
+      <p class="login-subtitle">Kişisel Kullanıcı Adınızla Giriş Yapın — Sohbetleriniz Otomatik Yüklenir</p>
 
-      <div class="form-group">
-        <span>🔑 Oda:</span>
-        <input type="text" id="room-input" class="input" value="genel" style="width:90px;" />
-        <button id="btn-change-room" class="btn btn-connect" style="padding:6px 10px;">Katıl</button>
+      <div class="login-label">Avatarınızı Seçin:</div>
+      <div class="avatar-picker">
+        <div class="avatar-opt active" data-avatar="👩‍💻">👩‍💻</div>
+        <div class="avatar-opt" data-avatar="👨‍💻">👨‍💻</div>
+        <div class="avatar-opt" data-avatar="🚀">🚀</div>
+        <div class="avatar-opt" data-avatar="👑">👑</div>
+        <div class="avatar-opt" data-avatar="👮">👮</div>
+        <div class="avatar-opt" data-avatar="🦊">🦊</div>
       </div>
 
-      <button id="btn-share-room" class="btn btn-share">🔗 Arkadaşını Davet Et</button>
-      <button id="btn-save" class="btn btn-save">💾 Sohbeti Kaydet (.txt)</button>
-      <button id="btn-sound" class="btn btn-sound">🔊</button>
-      <button id="btn-toggle" class="btn btn-disconnect" style="margin-left:auto;">Bağlantıyı Kes</button>
+      <div class="login-group">
+        <label class="login-label">Kullanıcı Adınız:</label>
+        <input type="text" id="input-username" class="login-input" placeholder="Örn: Zehra_Duyar" autocomplete="off" />
+      </div>
+
+      <div class="login-group">
+        <label class="login-label">Güvenlik PIN / Şifre (İsteğe Bağlı):</label>
+        <input type="password" id="input-pin" class="login-input" placeholder="4 Haneli PIN (Boş bırakılabilir)" maxlength="6" />
+      </div>
+
+      <div class="remember-row">
+        <label style="display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+          <input type="checkbox" id="chk-remember" checked />
+          <span>Bu cihazda beni hatırla</span>
+        </label>
+        <span style="font-size:11px; color:#38bdf8;">Kalıcı Cüzdan Aktif</span>
+      </div>
+
+      <button id="btn-login" class="btn-login">Sohbete Giriş Yap ve Mesajları Yükle</button>
+
+      <!-- Daha Önce Girilmiş Kayıtlı Profiller -->
+      <div id="saved-profiles-section" class="saved-profiles" style="display:none;">
+        <span style="color:#94a3b8; font-weight:700;">Bu Cihazdaki Kayıtlı Profiller:</span>
+        <div id="saved-profiles-list" class="saved-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. ANA SOHBET PENCERESİ -->
+  <header class="app-header">
+    <div class="app-title">
+      <h1>YMH219 — Canlı & Kalıcı Çevrimiçi Chat Platformu</h1>
+      <p>Nesne Tabanlı Programlama 3. Ödev · <b>Emine Zehra Duyar (250541027)</b></p>
+    </div>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <div class="user-profile-badge">
+        <span id="badge-avatar">👩‍💻</span>
+        <b id="badge-name" style="color:#38bdf8;">Zehra</b>
+        <button id="btn-logout" class="btn-logout" title="Çıkış yapıp başka kullanıcıyla gir">Çıkış 🚪</button>
+      </div>
+      <div id="status-badge" style="font-size:12px; color:#34d399; font-weight:700;">
+        ● Çevrimiçi
+      </div>
+    </div>
+  </header>
+
+  <div class="app-body">
+    <!-- Sol Panel: Kanallar ve Sohbet Listesi -->
+    <div class="sidebar-left">
+      <div class="panel-section-title">Sohbet Kanalları</div>
+      <div id="room-list">
+        <div class="room-item active" data-room="genel"># genel (Genel Sohbet)</div>
+        <div class="room-item" data-room="odev-yardimlasma"># odev-yardimlasma</div>
+        <div class="room-item" data-room="projeler"># projeler</div>
+      </div>
+      <div id="btn-new-room" class="btn-add-room">+ Yeni Kanal / Oda Aç</div>
+
+      <div class="panel-section-title" style="margin-top:12px;">Özel Mesajlar (DM)</div>
+      <div id="dm-list" style="display:flex; flex-direction:column;">
+        <div style="font-size:11.5px; color:#64748b; padding:8px 14px;">Henüz özel mesaj yok.</div>
+      </div>
     </div>
 
-    <!-- Ana Sohbet ve Kullanıcı Alanı -->
-    <div class="grid">
-      <!-- Sol: Mesajlaşma Alanı -->
-      <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <h3 style="margin:0; font-size:14px; color:#38bdf8;">
-            Canlı Sohbet Akışı (<span id="room-title">Oda: genel</span>)
-          </h3>
-          <span style="font-size:11.5px; color:#94a3b8;">
-            Özel mesaj için kullanıcı adına tıklayın veya <code>@Kişi Mesaj</code> yazın.
-          </span>
+    <!-- Orta Panel: Aktif Mesajlaşma Akışı -->
+    <div class="chat-center">
+      <div class="chat-header">
+        <div class="chat-header-info">
+          <h2 id="active-chat-title"># genel (Genel Sohbet)</h2>
+          <p id="active-chat-sub">Herkesin görebileceği açık grup kanalı</p>
         </div>
-
-        <div id="chat-box" class="chat-box"></div>
-
-        <div class="send-bar">
-          <input type="text" id="msg-input" class="send-input" placeholder="Mesajınızı yazın (Enter ile gönder)..." autocomplete="off" />
-          <button id="btn-send" class="btn btn-send">Gönder</button>
+        <div class="header-actions">
+          <button id="btn-share-link" class="btn-action">🔗 Davet Linki</button>
+          <button id="btn-save-txt" class="btn-action">💾 İndir (.txt)</button>
+          <button id="btn-clear-view" class="btn-action">🗑️ Ekranı Temizle</button>
+          <button id="btn-sound-toggle" class="btn-action">🔊</button>
         </div>
       </div>
 
-      <!-- Sağ: Çevrimiçi Kullanıcılar -->
-      <div class="card">
-        <h3 style="margin:0; font-size:14px; color:#facc15;">
-          Çevrimiçi Kişiler (<span id="user-count">1</span>)
-        </h3>
-        <div id="user-list" class="user-list"></div>
+      <div id="chat-messages" class="chat-messages"></div>
+
+      <div class="chat-footer">
+        <input type="text" id="chat-input" class="chat-input" placeholder="Mesajınızı yazın (Enter ile gönder)..." autocomplete="off" />
+        <button id="btn-send" class="btn-send">Gönder</button>
       </div>
+    </div>
+
+    <!-- Sağ Panel: Odadaki Çevrimiçi Kişiler -->
+    <div class="sidebar-right">
+      <div class="panel-section-title" style="padding:4px 0 8px 0;">Çevrimiçi Olanlar (<span id="online-count">1</span>)</div>
+      <div id="online-users-list"></div>
     </div>
   </div>
 
   <script>
     /* ==========================================================================
-       YMH219 - Gerçek Zamanlı Bulut Chat Motoru (MQTT over WebSockets)
+       YMH219 Chat - Kalıcı Kullanıcı & Mesajlaşma Motoru (Client + Storage + MQTT)
        Öğrenci: Emine Zehra Duyar (250541027)
-       Özellikler: Global Gerçek Zamanlı Mesajlaşma, Özel Mesaj (@kullanıcı),
-       Canlı Çevrimiçi Listesi, Oda Kodları, Davet Linki, Web Audio Bildirimi
+       Özellikler: Kişiye Özel Giriş, Geçmiş Sohbetlerin Otomatik Yüklenmesi,
+       Beni Hatırla, MQTT WebSocket Senkronizasyonu, Özel DM Sohbetleri
        ========================================================================== */
 
-    // URL'den oda parametresini al (?oda=zehra gibi)
+    // URL Parametreleri
     const urlParams = new URLSearchParams(window.location.search);
-    let currentRoom = (urlParams.get('oda') || 'genel').trim().toLowerCase();
+    const initialUrlRoom = (urlParams.get('oda') || 'genel').trim().toLowerCase();
 
-    // Rastgele veya saklanan isim
-    let myName = localStorage.getItem('ymh219_chat_name');
-    if (!myName) {
-      myName = 'Zehra_' + Math.floor(Math.random() * 899 + 100);
-      localStorage.setItem('ymh219_chat_name', myName);
-    }
-    const myId = 'uid_' + Math.random().toString(36).substring(2, 9);
+    // DOM Elemanları
+    const modalLogin = document.getElementById('login-modal');
+    const inputUsername = document.getElementById('input-username');
+    const inputPin = document.getElementById('input-pin');
+    const chkRemember = document.getElementById('chk-remember');
+    const btnLogin = document.getElementById('btn-login');
+    const savedProfilesSection = document.getElementById('saved-profiles-section');
+    const savedProfilesList = document.getElementById('saved-profiles-list');
+    const avatarOpts = document.querySelectorAll('.avatar-opt');
 
-    const usernameInput = document.getElementById('username-input');
-    const roomInput = document.getElementById('room-input');
-    const roomTitle = document.getElementById('room-title');
-    const chatBox = document.getElementById('chat-box');
-    const userList = document.getElementById('user-list');
-    const userCount = document.getElementById('user-count');
-    const msgInput = document.getElementById('msg-input');
-    const btnSend = document.getElementById('btn-send');
-    const btnToggle = document.getElementById('btn-toggle');
-    const btnChangeRoom = document.getElementById('btn-change-room');
-    const btnShareRoom = document.getElementById('btn-share-room');
-    const btnSave = document.getElementById('btn-save');
-    const btnSound = document.getElementById('btn-sound');
+    const badgeAvatar = document.getElementById('badge-avatar');
+    const badgeName = document.getElementById('badge-name');
+    const btnLogout = document.getElementById('btn-logout');
     const statusBadge = document.getElementById('status-badge');
-    const statusText = document.getElementById('status-text');
 
-    usernameInput.value = myName;
-    roomInput.value = currentRoom;
-    roomTitle.innerText = `Oda: ${currentRoom}`;
+    const roomList = document.getElementById('room-list');
+    const btnNewRoom = document.getElementById('btn-new-room');
+    const dmList = document.getElementById('dm-list');
+    const activeChatTitle = document.getElementById('active-chat-title');
+    const activeChatSub = document.getElementById('active-chat-sub');
+    const btnShareLink = document.getElementById('btn-share-link');
+    const btnSaveTxt = document.getElementById('btn-save-txt');
+    const btnClearView = document.getElementById('btn-clear-view');
+    const btnSoundToggle = document.getElementById('btn-sound-toggle');
+    const chatMessages = document.getElementById('chat-messages');
+    const chatInput = document.getElementById('chat-input');
+    const btnSend = document.getElementById('btn-send');
+    const onlineUsersList = document.getElementById('online-users-list');
+    const onlineCount = document.getElementById('online-count');
 
-    // --- Web Audio API Bildirim Sesi ---
+    // Aktif Durum
+    let currentUser = null;
+    let selectedAvatar = '👩‍💻';
+    let activeChatType = 'room'; // 'room' veya 'dm'
+    let activeChatTarget = initialUrlRoom; // 'genel', 'proje' veya 'Ahmet'
     let soundEnabled = true;
+
+    // --- Web Audio Sesi ---
     let audioCtx = null;
-    function playChime() {
+    function playBeep() {
       if (!soundEnabled) return;
       try {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -256,89 +397,287 @@
         const now = audioCtx.currentTime;
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(880, now);
-        osc.frequency.exponentialRampToValueAtTime(1320, now + 0.12);
-        gain.gain.setValueAtTime(0.2, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+        osc.frequency.setValueAtTime(800, now);
+        osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         osc.start(now);
-        osc.stop(now + 0.12);
+        osc.stop(now + 0.1);
       } catch (e) {}
     }
-
-    btnSound.onclick = () => {
+    btnSoundToggle.onclick = () => {
       soundEnabled = !soundEnabled;
-      btnSound.innerText = soundEnabled ? '🔊' : '🔇';
+      btnSoundToggle.innerText = soundEnabled ? '🔊' : '🔇';
     };
 
-    // --- Çevrimiçi Kullanıcı Takibi (Presence Heartbeat) ---
-    const onlineUsers = new Map(); // id -> { name, lastSeen }
-    onlineUsers.set(myId, { name: myName, lastSeen: Date.now() });
+    // --- KALICI VERİ DEPOLAMA (LocalStorage Database) ---
+    const DB = {
+      getKey(username) {
+        return `ymh219_chat_user_${username.toLowerCase()}`;
+      },
+      getUserData(username) {
+        try {
+          const raw = localStorage.getItem(this.getKey(username));
+          if (raw) return JSON.parse(raw);
+        } catch(e) {}
+        return null;
+      },
+      saveUserData(data) {
+        try {
+          localStorage.setItem(this.getKey(data.username), JSON.stringify(data));
+          // Genel kullanıcı indeksine ekle
+          const usersList = this.getAllSavedUsers();
+          if (!usersList.includes(data.username)) {
+            usersList.push(data.username);
+            localStorage.setItem('ymh219_saved_users_list', JSON.stringify(usersList));
+          }
+        } catch(e) {}
+      },
+      getAllSavedUsers() {
+        try {
+          const raw = localStorage.getItem('ymh219_saved_users_list');
+          if (raw) return JSON.parse(raw);
+        } catch(e) {}
+        return [];
+      },
+      getLastUser() {
+        return localStorage.getItem('ymh219_last_active_user');
+      },
+      setLastUser(username) {
+        localStorage.setItem('ymh219_last_active_user', username);
+      },
+      clearLastUser() {
+        localStorage.removeItem('ymh219_last_active_user');
+      }
+    };
 
-    function refreshUsersUI() {
-      const now = Date.now();
-      // 25 saniyeden eski olanları düşür
-      for (const [id, u] of onlineUsers.entries()) {
-        if (id !== myId && now - u.lastSeen > 25000) {
-          onlineUsers.delete(id);
+    // Avatar Seçimi
+    avatarOpts.forEach(opt => {
+      opt.onclick = () => {
+        avatarOpts.forEach(o => o.classList.remove('active'));
+        opt.classList.add('active');
+        selectedAvatar = opt.getAttribute('data-avatar');
+      };
+    });
+
+    // Kayıtlı Kullanıcıları Listele (Hızlı Giriş)
+    function renderSavedProfiles() {
+      const saved = DB.getAllSavedUsers();
+      if (saved.length > 0) {
+        savedProfilesSection.style.display = 'block';
+        savedProfilesList.innerHTML = saved.map(name => {
+          const u = DB.getUserData(name);
+          const av = u ? u.avatar : '👤';
+          return `
+            <div class="saved-item" onclick="quickLogin('${name}')">
+              <span>${av} <b>${name}</b></span>
+              <span style="font-size:11px; color:#38bdf8;">Hızlı Giriş →</span>
+            </div>
+          `;
+        }).join('');
+      } else {
+        savedProfilesSection.style.display = 'none';
+      }
+    }
+
+    window.quickLogin = function(name) {
+      inputUsername.value = name;
+      const u = DB.getUserData(name);
+      if (u) {
+        if (u.pin) inputPin.value = u.pin;
+        selectedAvatar = u.avatar || '👩‍💻';
+        avatarOpts.forEach(o => {
+          if (o.getAttribute('data-avatar') === selectedAvatar) o.classList.add('active');
+          else o.classList.remove('active');
+        });
+      }
+      doLogin();
+    };
+
+    // --- GİRİŞ YAPMA MANTIĞI ---
+    function doLogin() {
+      const name = inputUsername.value.trim();
+      if (!name) {
+        alert('Lütfen bir kullanıcı adı girin!');
+        return;
+      }
+      const pin = inputPin.value.trim();
+
+      // Varolan veriyi oku veya sıfırla
+      let userData = DB.getUserData(name);
+      if (userData) {
+        // PIN doğrulaması (eğer kayıtlıysa)
+        if (userData.pin && userData.pin !== pin && pin !== '') {
+          alert('Hatalı PIN kodu! Lütfen doğru PIN girin.');
+          return;
         }
+        userData.avatar = selectedAvatar;
+      } else {
+        // Yeni kullanıcı oluştur
+        userData = {
+          username: name,
+          pin: pin,
+          avatar: selectedAvatar,
+          rooms: {
+            'genel': [],
+            'odev-yardimlasma': [],
+            'projeler': []
+          },
+          directMessages: {}
+        };
       }
 
-      userCount.innerText = onlineUsers.size;
-      userList.innerHTML = Array.from(onlineUsers.entries()).map(([id, u]) => {
-        const isSelf = id === myId;
+      if (chkRemember.checked) {
+        DB.setLastUser(name);
+      } else {
+        DB.clearLastUser();
+      }
+
+      DB.saveUserData(userData);
+      currentUser = userData;
+
+      // Arayüzü Güncelle
+      badgeAvatar.innerText = currentUser.avatar;
+      badgeName.innerText = currentUser.username;
+      modalLogin.style.display = 'none';
+
+      // Sohbet geçmişini hemen ekrana yükle!
+      initChatUI();
+      connectMqtt();
+    }
+
+    btnLogin.onclick = doLogin;
+    inputUsername.onkeydown = (e) => { if (e.key === 'Enter') doLogin(); };
+
+    // Çıkış Yap Butonu
+    btnLogout.onclick = () => {
+      if (confirm('Oturumu kapatıp başka bir kullanıcıyla giriş yapmak istiyor musunuz?')) {
+        DB.clearLastUser();
+        if (mqttClient) {
+          publishPresence('leave');
+          mqttClient.end();
+        }
+        location.reload();
+      }
+    };
+
+    // --- SOHBET ARAYÜZÜNÜ VE GEÇMİŞİ YÜKLEME ---
+    function initChatUI() {
+      renderRoomsList();
+      renderDmList();
+      loadCurrentChatHistory();
+    }
+
+    function renderRoomsList() {
+      const rooms = Object.keys(currentUser.rooms);
+      roomList.innerHTML = rooms.map(r => `
+        <div class="room-item ${activeChatType === 'room' && activeChatTarget === r ? 'active' : ''}" onclick="switchRoom('${r}')">
+          # ${r}
+        </div>
+      `).join('');
+    }
+
+    function renderDmList() {
+      const dms = Object.keys(currentUser.directMessages || {});
+      if (dms.length === 0) {
+        dmList.innerHTML = `<div style="font-size:11.5px; color:#64748b; padding:8px 14px;">Henüz özel mesaj yok.</div>`;
+        return;
+      }
+      dmList.innerHTML = dms.map(targetName => {
+        const msgs = currentUser.directMessages[targetName] || [];
+        const lastMsg = msgs.length > 0 ? msgs[msgs.length - 1].text : '';
+        const isAct = activeChatType === 'dm' && activeChatTarget === targetName;
         return `
-          <div class="user-item ${isSelf ? 'self' : ''}" onclick="tagUser('${u.name}')" title="Özel mesaj atmak için tıklayın">
-            <span>🟢 <b>${u.name}</b> ${isSelf ? '<span style="font-size:11px; color:#38bdf8;">(Sen)</span>' : ''}</span>
-            <span style="font-size:11px; color:#94a3b8;">Çevrimiçi</span>
+          <div class="room-item ${isAct ? 'active' : ''}" onclick="switchDm('${targetName}')">
+            <span>👤 <b>${targetName}</b></span>
           </div>
         `;
       }).join('');
     }
 
-    window.tagUser = function(name) {
-      if (name === myName) return;
-      msgInput.value = `@${name} ` + msgInput.value.replace(/^@\S+\s*/, '');
-      msgInput.focus();
+    window.switchRoom = function(room) {
+      activeChatType = 'room';
+      activeChatTarget = room;
+      activeChatTitle.innerText = `# ${room}`;
+      activeChatSub.innerText = `${room} kanalındaki sohbet geçmişi`;
+      renderRoomsList();
+      renderDmList();
+      loadCurrentChatHistory();
+      if (mqttClient) subscribeToRoom(room);
     };
 
-    // --- Mesaj Listesi ve Ekrana Basma ---
-    const messages = [];
+    window.switchDm = function(targetName) {
+      activeChatType = 'dm';
+      activeChatTarget = targetName;
+      activeChatTitle.innerText = `🔒 ${targetName} ile Özel Sohbet`;
+      activeChatSub.innerText = `Yalnızca ikiniz arasında uçtan uca özel mesajlaşma`;
+      renderRoomsList();
+      renderDmList();
+      loadCurrentChatHistory();
+    };
 
-    function addMessageToUI(msg) {
-      messages.push(msg);
-      const isSelf = msg.senderId === myId;
-      const isPrivate = msg.type === 'private';
+    // Yeni Oda Aç Butonu
+    btnNewRoom.onclick = () => {
+      const name = prompt('Açmak veya katılmak istediğiniz yeni oda/kanal adını girin (Örn: vize-calisma):');
+      if (!name) return;
+      const clean = name.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+      if (!currentUser.rooms[clean]) {
+        currentUser.rooms[clean] = [];
+        DB.saveUserData(currentUser);
+      }
+      switchRoom(clean);
+    };
+
+    // --- SOHBET GEÇMİŞİNİ EKRANA DÖKME ---
+    function loadCurrentChatHistory() {
+      chatMessages.innerHTML = '';
+      let messages = [];
+
+      if (activeChatType === 'room') {
+        messages = currentUser.rooms[activeChatTarget] || [];
+      } else {
+        messages = currentUser.directMessages[activeChatTarget] || [];
+      }
+
+      if (messages.length === 0) {
+        chatMessages.innerHTML = `
+          <div class="msg msg-system">
+            ℹ️ Bu sohbette henüz mesaj bulunmuyor. İlk mesajı siz yazın!
+          </div>
+        `;
+        return;
+      }
+
+      messages.forEach(m => renderMessageBubble(m));
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function renderMessageBubble(m) {
+      const isSelf = m.sender === currentUser.username;
+      const isPrivate = m.type === 'private';
       let cls = 'msg-public';
-      if (msg.type === 'system') cls = 'msg-system';
+      if (m.type === 'system') cls = 'msg-system';
       else if (isPrivate) cls = isSelf ? 'msg-private-self' : 'msg-private';
       else if (isSelf) cls = 'msg-self';
-
-      const timeStr = msg.time || new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
       const div = document.createElement('div');
       div.className = `msg ${cls}`;
 
-      if (msg.type === 'system') {
-        div.innerHTML = `ℹ️ [${timeStr}] ${msg.text}`;
+      if (m.type === 'system') {
+        div.innerHTML = `ℹ️ [${m.time}] ${m.text}`;
       } else {
         div.innerHTML = `
           <div class="msg-meta">
-            <b>${msg.sender}</b> · ${timeStr}
-            ${isPrivate ? `<span class="msg-badge">ÖZEL (${msg.target})</span>` : ''}
+            <span>${m.avatar || '👤'} <b>${m.sender}</b></span>
+            <span>· ${m.time}</span>
+            ${isPrivate ? `<span class="msg-tag">ÖZEL (${m.target})</span>` : ''}
           </div>
-          <div>${escapeHtml(msg.text)}</div>
+          <div>${escapeHtml(m.text)}</div>
         `;
       }
-
-      chatBox.appendChild(div);
-      chatBox.scrollTop = chatBox.scrollHeight;
-
-      if (!isSelf && msg.type !== 'system') {
-        playChime();
-      }
+      chatMessages.appendChild(div);
     }
 
     function escapeHtml(text) {
@@ -347,234 +686,246 @@
       return p.innerHTML;
     }
 
-    // --- Canlı Bulut MQTT İletişim Motoru ---
-    let client = null;
-    let isConnected = false;
-    let heartbeatInterval = null;
+    // --- CANLI BULUT SENKRONİZASYONU (MQTT) ---
+    let mqttClient = null;
+    const onlineMap = new Map(); // id -> { name, avatar, lastSeen }
 
-    // Yedekli genel MQTT broker adresleri (HiveMQ + EMQX)
-    const brokers = [
-      'wss://broker.hivemq.com:8884/mqtt',
-      'wss://broker.emqx.io:8084/mqtt'
-    ];
-    let brokerIndex = 0;
+    function connectMqtt() {
+      statusBadge.innerText = '● Buluta Bağlanıyor...';
+      statusBadge.style.color = '#facc15';
 
-    function getTopic(room) {
-      return `ymh219_ntp_chat/${room}`;
+      const clientId = 'web_' + currentUser.username + '_' + Math.random().toString(36).substring(2, 7);
+      mqttClient = mqtt.connect('wss://broker.hivemq.com:8884/mqtt', {
+        clientId: clientId,
+        clean: true,
+        connectTimeout: 8000
+      });
+
+      mqttClient.on('connect', () => {
+        statusBadge.innerText = '● Canlı Çevrimiçi';
+        statusBadge.style.color = '#34d399';
+
+        subscribeToRoom(activeChatTarget);
+
+        // Kullanıcıya özel kanala da abone ol (Doğrudan DM'ler için)
+        const myPersonalChannel = `ymh219_dm/${currentUser.username.toLowerCase()}`;
+        mqttClient.subscribe(myPersonalChannel);
+
+        // Odaya katılımı bildir
+        publishPresence('join');
+        setInterval(() => publishPresence('ping'), 12000);
+      });
+
+      mqttClient.on('message', (topic, payload) => {
+        try {
+          const packet = JSON.parse(payload.toString());
+          handleIncomingMqtt(packet);
+        } catch(e) {}
+      });
+
+      mqttClient.on('error', () => {
+        statusBadge.innerText = '■ Bağlantı Hatası';
+        statusBadge.style.color = '#ef4444';
+      });
     }
 
-    function connectToBroker() {
-      if (client) {
-        try { client.end(true); } catch(e) {}
-      }
-
-      statusBadge.className = 'status-badge connecting';
-      statusText.innerText = 'Bulut Sunucusuna Bağlanıyor...';
-
-      const brokerUrl = brokers[brokerIndex];
-      const clientId = 'web_' + myId;
-
-      try {
-        client = mqtt.connect(brokerUrl, {
-          clientId: clientId,
-          clean: true,
-          connectTimeout: 7000,
-          reconnectPeriod: 4000
-        });
-
-        client.on('connect', () => {
-          isConnected = true;
-          statusBadge.className = 'status-badge';
-          statusText.innerText = `● ÇEVRİMİÇİ (Oda: ${currentRoom})`;
-          btnToggle.innerText = 'Bağlantıyı Kes';
-          btnToggle.className = 'btn btn-disconnect';
-
-          const topic = getTopic(currentRoom);
-          client.subscribe(topic, { qos: 0 }, (err) => {
-            if (!err) {
-              // Katılma bildirimi
-              publishEvent('system', `${myName} sohbete katıldı.`);
-              publishHeartbeat();
-            }
-          });
-
-          // Düzenli kalp atışı (Presence)
-          if (heartbeatInterval) clearInterval(heartbeatInterval);
-          heartbeatInterval = setInterval(publishHeartbeat, 10000);
-        });
-
-        client.on('message', (topic, payload) => {
-          try {
-            const data = JSON.parse(payload.toString());
-            handleIncomingPacket(data);
-          } catch(e) {}
-        });
-
-        client.on('close', () => {
-          isConnected = false;
-          statusBadge.className = 'status-badge offline';
-          statusText.innerText = '■ BAĞLANTI KESİLDİ';
-          btnToggle.innerText = 'Yeniden Bağlan';
-          btnToggle.className = 'btn btn-connect';
-        });
-
-        client.on('error', (err) => {
-          console.warn('Broker hatası:', err);
-          // Sıradaki brokere geç
-          brokerIndex = (brokerIndex + 1) % brokers.length;
-        });
-
-      } catch (err) {
-        console.error('MQTT başlatılamadı:', err);
-      }
+    function subscribeToRoom(room) {
+      if (!mqttClient) return;
+      const topic = `ymh219_room/${room.toLowerCase()}`;
+      mqttClient.subscribe(topic);
     }
 
-    function publishHeartbeat() {
-      if (!client || !isConnected) return;
-      const packet = {
+    function publishPresence(type) {
+      if (!mqttClient) return;
+      const pkt = {
         kind: 'presence',
-        senderId: myId,
-        sender: myName,
+        action: type,
+        user: currentUser.username,
+        avatar: currentUser.avatar,
+        room: activeChatTarget,
         time: Date.now()
       };
-      client.publish(getTopic(currentRoom), JSON.stringify(packet));
+      mqttClient.publish(`ymh219_room/${activeChatTarget.toLowerCase()}`, JSON.stringify(pkt));
     }
 
-    function publishEvent(type, text, target = null) {
-      if (!client || !isConnected) return;
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      const packet = {
-        kind: 'message',
-        type: type,
-        senderId: myId,
-        sender: myName,
-        text: text,
-        target: target,
-        time: timeStr
-      };
-      client.publish(getTopic(currentRoom), JSON.stringify(packet));
-    }
-
-    function handleIncomingPacket(data) {
-      if (data.kind === 'presence') {
-        onlineUsers.set(data.senderId, { name: data.sender, lastSeen: Date.now() });
-        refreshUsersUI();
+    function handleIncomingMqtt(pkt) {
+      // 1. Çevrimiçi Kullanıcı Takibi
+      if (pkt.kind === 'presence') {
+        if (pkt.action === 'leave') {
+          onlineMap.delete(pkt.user);
+        } else {
+          onlineMap.set(pkt.user, { avatar: pkt.avatar, lastSeen: Date.now() });
+        }
+        renderOnlineUsers();
         return;
       }
 
-      if (data.kind === 'message') {
-        // Özel mesaj kontrolü: Yalnızca alıcı veya gönderen görebilir
-        if (data.type === 'private') {
-          const isForMe = data.target === myName;
-          const isFromMe = data.senderId === myId;
-          if (!isForMe && !isFromMe) return; // Başkasına ait özel mesaj, yoksay
+      // 2. Mesaj İşleme ve Kalıcı Kaydetme
+      if (pkt.kind === 'msg') {
+        const timeStr = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+        const newMsg = {
+          id: Date.now() + Math.random(),
+          sender: pkt.sender,
+          avatar: pkt.avatar,
+          text: pkt.text,
+          time: timeStr,
+          type: pkt.type,
+          target: pkt.target
+        };
+
+        if (pkt.type === 'public') {
+          // Odanın geçmişine kaydet
+          if (!currentUser.rooms[pkt.room]) currentUser.rooms[pkt.room] = [];
+          currentUser.rooms[pkt.room].push(newMsg);
+          DB.saveUserData(currentUser);
+
+          // Eğer şu an o oda açıksa ekrana bas
+          if (activeChatType === 'room' && activeChatTarget === pkt.room) {
+            renderMessageBubble(newMsg);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            if (pkt.sender !== currentUser.username) playBeep();
+          }
+        } else if (pkt.type === 'private') {
+          // Özel DM mesajı
+          const otherUser = (pkt.sender === currentUser.username) ? pkt.target : pkt.sender;
+          if (!currentUser.directMessages[otherUser]) currentUser.directMessages[otherUser] = [];
+          currentUser.directMessages[otherUser].push(newMsg);
+          DB.saveUserData(currentUser);
+          renderDmList();
+
+          // Eğer şu an o kişiyle DM açıksa ekrana bas
+          if (activeChatType === 'dm' && activeChatTarget === otherUser) {
+            renderMessageBubble(newMsg);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            if (pkt.sender !== currentUser.username) playBeep();
+          }
         }
-        addMessageToUI(data);
       }
     }
 
-    // --- Mesaj Gönderme ---
-    function handleSend() {
-      const text = msgInput.value.trim();
-      if (!text || !isConnected) return;
-
-      if (text.startsWith('@')) {
-        const parts = text.slice(1).split(' ');
-        const target = parts[0];
-        const content = parts.slice(1).join(' ').trim();
-        if (!content) {
-          alert('Lütfen özel mesaj içeriğini yazın (Örn: @Ahmet Merhaba)');
-          return;
-        }
-        publishEvent('private', content, target);
-      } else {
-        publishEvent('public', text);
+    function renderOnlineUsers() {
+      const now = Date.now();
+      for (const [name, u] of onlineMap.entries()) {
+        if (now - u.lastSeen > 30000) onlineMap.delete(name);
       }
 
-      msgInput.value = '';
-      msgInput.focus();
+      onlineCount.innerText = onlineMap.size + 1; // +1 kendisi
+      onlineUsersList.innerHTML = `
+        <div class="online-user-item self">
+          <span>${currentUser.avatar} <b>${currentUser.username}</b> (Sen)</span>
+          <span style="font-size:10.5px; color:#38bdf8;">Aktif</span>
+        </div>
+      `;
+
+      for (const [name, u] of onlineMap.entries()) {
+        if (name === currentUser.username) continue;
+        const div = document.createElement('div');
+        div.className = 'online-user-item';
+        div.innerHTML = `
+          <span>${u.avatar || '👤'} <b>${name}</b></span>
+          <span style="font-size:10.5px; color:#34d399;">DM Başlat →</span>
+        `;
+        div.onclick = () => startDmWith(name);
+        onlineUsersList.appendChild(div);
+      }
     }
 
-    btnSend.onclick = handleSend;
-    msgInput.onkeydown = (e) => { if (e.key === 'Enter') handleSend(); };
-
-    // --- Oda Değiştirme ---
-    btnChangeRoom.onclick = () => {
-      const newRoom = roomInput.value.trim().toLowerCase();
-      if (!newRoom || newRoom === currentRoom) return;
-
-      if (client && isConnected) {
-        publishEvent('system', `${myName} bu odadan ayrıldı.`);
-        client.unsubscribe(getTopic(currentRoom));
+    window.startDmWith = function(otherName) {
+      if (!currentUser.directMessages[otherName]) {
+        currentUser.directMessages[otherName] = [];
+        DB.saveUserData(currentUser);
       }
-
-      currentRoom = newRoom;
-      roomTitle.innerText = `Oda: ${currentRoom}`;
-      chatBox.innerHTML = '';
-      onlineUsers.clear();
-      onlineUsers.set(myId, { name: myName, lastSeen: Date.now() });
-      refreshUsersUI();
-
-      // Yeni odaya abone ol
-      client.subscribe(getTopic(currentRoom), () => {
-        publishEvent('system', `${myName} odaya katıldı.`);
-        publishHeartbeat();
-      });
-      statusText.innerText = `● ÇEVRİMİÇİ (Oda: ${currentRoom})`;
+      switchDm(otherName);
     };
 
-    // --- İsim Güncelleme ---
-    usernameInput.onchange = () => {
-      const newName = usernameInput.value.trim();
-      if (!newName || newName === myName) return;
-      const oldName = myName;
-      myName = newName;
-      localStorage.setItem('ymh219_chat_name', myName);
-      onlineUsers.set(myId, { name: myName, lastSeen: Date.now() });
-      refreshUsersUI();
-      publishEvent('system', `${oldName} adını "${newName}" olarak değiştirdi.`);
-    };
+    // --- MESAJ GÖNDERME ---
+    function sendMessage() {
+      const text = chatInput.value.trim();
+      if (!text || !currentUser) return;
 
-    // --- Bağlantı Kes / Yeniden Bağlan ---
-    btnToggle.onclick = () => {
-      if (isConnected) {
-        publishEvent('system', `${myName} bağlantıyı kesti.`);
-        client.end();
+      const timeStr = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+
+      if (activeChatType === 'room') {
+        // Genel kanal mesajı
+        const pkt = {
+          kind: 'msg',
+          type: 'public',
+          room: activeChatTarget,
+          sender: currentUser.username,
+          avatar: currentUser.avatar,
+          text: text
+        };
+        mqttClient.publish(`ymh219_room/${activeChatTarget.toLowerCase()}`, JSON.stringify(pkt));
       } else {
-        connectToBroker();
+        // Özel DM mesajı
+        const pkt = {
+          kind: 'msg',
+          type: 'private',
+          sender: currentUser.username,
+          avatar: currentUser.avatar,
+          target: activeChatTarget,
+          text: text
+        };
+        // Hem alıcının DM kanalına hem kendi DM kanalına at
+        mqttClient.publish(`ymh219_dm/${activeChatTarget.toLowerCase()}`, JSON.stringify(pkt));
+        mqttClient.publish(`ymh219_dm/${currentUser.username.toLowerCase()}`, JSON.stringify(pkt));
       }
+
+      chatInput.value = '';
+      chatInput.focus();
+    }
+
+    btnSend.onclick = sendMessage;
+    chatInput.onkeydown = (e) => { if (e.key === 'Enter') sendMessage(); };
+
+    // Davet Linki Kopyala
+    btnShareLink.onclick = () => {
+      const room = activeChatType === 'room' ? activeChatTarget : 'genel';
+      const link = `${window.location.origin}${window.location.pathname}?oda=${encodeURIComponent(room)}`;
+      navigator.clipboard.writeText(link).then(() => {
+        alert(`Oda Bağlantısı Kopyalandı! 📋\n\nArkadaşınıza bu bağlantıyı gönderin:\n${link}\n\nArkadaşınız kendi kullanıcı adıyla girdiğinde doğrudan bu odaya bağlanacaktır.`);
+      }).catch(() => prompt("Davet linkiniz:", link));
     };
 
-    // --- Arkadaşını Davet Et (Link Kopyala) ---
-    btnShareRoom.onclick = () => {
-      const inviteUrl = `${window.location.origin}${window.location.pathname}?oda=${encodeURIComponent(currentRoom)}`;
-      navigator.clipboard.writeText(inviteUrl).then(() => {
-        alert(`Oda Bağlantısı Kopyalandı! 📋\n\nArkadaşınıza bu linki gönderin:\n${inviteUrl}\n\nArkadaşınız tıkladığında doğrudan sizin odanıza bağlanacaktır.`);
-      }).catch(() => {
-        prompt("Arkadaşınıza bu linki gönderin:", inviteUrl);
-      });
-    };
+    // .txt Olarak İndir
+    btnSaveTxt.onclick = () => {
+      const msgs = (activeChatType === 'room')
+        ? (currentUser.rooms[activeChatTarget] || [])
+        : (currentUser.directMessages[activeChatTarget] || []);
 
-    // --- Sohbet Geçmişini .txt Olarak İndir ---
-    btnSave.onclick = () => {
-      if (messages.length === 0) return alert('Kaydedilecek mesaj yok!');
-      const content = messages.map(m => {
-        if (m.type === 'system') return `[${m.time}] [SİSTEM] ${m.text}`;
-        if (m.type === 'private') return `[${m.time}] [ÖZEL -> ${m.target}] ${m.sender}: ${m.text}`;
-        return `[${m.time}] [GENEL] ${m.sender}: ${m.text}`;
-      }).join('\n');
+      if (msgs.length === 0) return alert('İndirilecek mesaj yok!');
 
+      const content = msgs.map(m => `[${m.time}] [${m.sender}]: ${m.text}`).join('\n');
       const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `sohbet_gecmisi_${currentRoom}.txt`;
+      a.download = `sohbet_${activeChatTarget}.txt`;
       a.click();
     };
 
-    // Başlangıç Bağlantısı
-    refreshUsersUI();
-    connectToBroker();
+    // Ekranı Temizle (Görsel temizleme)
+    btnClearView.onclick = () => {
+      if (confirm('Sadece ekrandaki görünümü temizlemek istiyor musunuz? (Kayıtlı mesajlarınız silinmez)')) {
+        chatMessages.innerHTML = `<div class="msg msg-system">ℹ️ Ekran görünümü temizlendi. Tekrar görmek için kanalı yeniden seçebilirsiniz.</div>`;
+      }
+    };
+
+    // --- BAŞLANGIÇ KONTROLÜ (OTOMATİK GİRİŞ VEYA MODAL) ---
+    const lastUser = DB.getLastUser();
+    if (lastUser && DB.getUserData(lastUser)) {
+      // Beni Hatırla aktifse doğrudan giriş yap!
+      currentUser = DB.getUserData(lastUser);
+      badgeAvatar.innerText = currentUser.avatar;
+      badgeName.innerText = currentUser.username;
+      modalLogin.style.display = 'none';
+      initChatUI();
+      connectMqtt();
+    } else {
+      // Değilse giriş modalını aç
+      modalLogin.style.display = 'flex';
+      renderSavedProfiles();
+      inputUsername.focus();
+    }
   </script>
 </body>
 </html>
